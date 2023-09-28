@@ -56,6 +56,8 @@
 #include "measure_time.h"
 #include "svc_set_mb_syn.h"
 
+#include "x265_encode.h"
+
 namespace WelsEnc {
 
 
@@ -2823,7 +2825,7 @@ static inline void PrefetchReferencePicture (sWelsEncCtx* pCtx, const EVideoFram
 
 int32_t WelsWriteOneSPS (sWelsEncCtx* pCtx, const int32_t kiSpsIdx, int32_t& iNalSize) {
   int iNal = pCtx->pOut->iNalIndex;
-  WelsLoadNal (pCtx->pOut, NAL_UNIT_SPS, NRI_PRI_HIGHEST);
+  WelsLoadNal (pCtx->pOut, 7, NRI_PRI_HIGHEST);
 
   WelsWriteSpsNal (&pCtx->pSpsArray[kiSpsIdx], &pCtx->pOut->sBsWrite,
                    pCtx->pFuncList->pParametersetStrategy->GetSpsIdOffsetList (PARA_SET_TYPE_AVCSPS));
@@ -2843,7 +2845,7 @@ int32_t WelsWriteOnePPS (sWelsEncCtx* pCtx, const int32_t kiPpsIdx, int32_t& iNa
   //TODO
   int32_t iNal = pCtx->pOut->iNalIndex;
   /* generate picture parameter set */
-  WelsLoadNal (pCtx->pOut, NAL_UNIT_PPS, NRI_PRI_HIGHEST);
+  WelsLoadNal (pCtx->pOut, 8, NRI_PRI_HIGHEST);
 
   WelsWritePpsSyntax (&pCtx->pPPSArray[kiPpsIdx], &pCtx->pOut->sBsWrite,
                       pCtx->pFuncList->pParametersetStrategy);
@@ -3012,7 +3014,7 @@ int32_t WritePadding (sWelsEncCtx* pCtx, int32_t iLen, int32_t& iSize) {
     return ENC_RETURN_MEMOVERFLOWFOUND;
   }
 
-  WelsLoadNal (pCtx->pOut, NAL_UNIT_FILLER_DATA, NRI_PRI_LOWEST);
+  WelsLoadNal (pCtx->pOut, 12, NRI_PRI_LOWEST);
 
   for (i = 0; i < iLen; i++) {
     BsWriteBits (pBs, 8, 0xff);
@@ -3434,6 +3436,25 @@ EVideoFrameType PrepareEncodeFrame (sWelsEncCtx* pCtx, SLayerBSInfo*& pLayerBsIn
   }
   return eFrameType;
 }
+
+
+
+#if SMOOTH_INTRA
+Recon* recc;
+extern MyEncoder p_encoder;
+
+//定义一个结构体，包含三个int，分别为宽、高和标识
+typedef struct 
+{
+    int bits;
+    int width;
+    int height;
+    int flag;
+}EndBytes;
+
+EndBytes endbytes;
+#endif
+
 /*!
  * \brief   core svc encoding process
  *
@@ -3620,19 +3641,48 @@ int32_t WelsEncoderEncodeExt (sWelsEncCtx* pCtx, SFrameBSInfo* pFbi, const SSour
       fprintf(stderr, "IDR Y Width = %d, Height = %d Line = %d\n", pCtx->pEncPic->iWidthInPixel, pCtx->pEncPic->iHeightInPixel, pCtx->pEncPic->iLineSize[0]);
       fprintf(stderr, "IDR U Width = %d, Height = %d Line = %d\n", pCtx->pEncPic->iWidthInPixel, pCtx->pEncPic->iHeightInPixel, pCtx->pEncPic->iLineSize[1]);
       fprintf(stderr, "IDR V Width = %d, Height = %d Line = %d\n", pCtx->pEncPic->iWidthInPixel, pCtx->pEncPic->iHeightInPixel, pCtx->pEncPic->iLineSize[2]);
-      buf265 = (uint8_t*)malloc(pCtx->pEncPic->iHeightInPixel * pCtx->pEncPic->iLineSize[0]  * 3 / 2);
       
-      // 写入Y到buf265
-      int framesize = pCtx->pEncPic->iHeightInPixel * pCtx->pEncPic->iLineSize[0];
-      memcpy(buf265, pCtx->pEncPic->pData[0], framesize);
+      
+      // buf265 = (uint8_t*)malloc(pCtx->pEncPic->iHeightInPixel * pCtx->pEncPic->iLineSize[0]  * 3 / 2);
+      
+      // // 写入Y到buf265
+      // int framesize = pCtx->pEncPic->iHeightInPixel * pCtx->pEncPic->iLineSize[0];
+      // memcpy(buf265, pCtx->pEncPic->pData[0], framesize);
+      
+      // // 写入U到buf265
+      // memcpy(buf265 + framesize, pCtx->pEncPic->pData[1], framesize / 4);
 
-      // 写入U到buf265
-      memcpy(buf265 + framesize, pCtx->pEncPic->pData[1], framesize / 4);
+      // // 写入V到buf265
+      // memcpy(buf265 + framesize + framesize / 4, pCtx->pEncPic->pData[2], framesize / 4);
 
-      // 写入V到buf265
-      memcpy(buf265 + framesize + framesize / 4, pCtx->pEncPic->pData[2], framesize / 4);
+        MyPacket* packet = new MyPacket;
+        recc = new Recon;
+        
+        uint8_t *fdata[3];
+        fdata[0] = pCtx->pEncPic->pData[0];
+        fdata[1] = pCtx->pEncPic->pData[1];
+        fdata[2] = pCtx->pEncPic->pData[2];
+        p_encoder.encoder_encode_frame(fdata,packet,0, recc);
 
-      my_nal_size = framesize * 3 / 2;
+        // 将packet写入文件
+        // FILE *fp = fopen("test.265", "wb");
+        // fwrite(packet->data, 1, packet->size, fp);
+        // fclose(fp);
+        endbytes.height = pCtx->pEncPic->iHeightInPixel;
+        endbytes.width = pCtx->pEncPic->iLineSize[0];
+
+        my_nal_size = packet->size+sizeof(EndBytes);
+        endbytes.bits = my_nal_size;
+        // 将packet中的数据写入buf265
+        buf265 = (uint8_t*)malloc(packet->size + sizeof(EndBytes)); 
+
+        memcpy(buf265, packet->data, packet->size);
+
+
+        // 写入结构体endbytes
+        memcpy(buf265 + packet->size, &endbytes, sizeof(EndBytes));
+  
+        
 
 
 #endif
@@ -3961,11 +4011,11 @@ int32_t WelsEncoderEncodeExt (sWelsEncCtx* pCtx, SFrameBSInfo* pFbi, const SSour
         //READ FROM buf265
         int frame_size_recon = current_pic->iLineSize[0] * current_pic->iHeightInPixel;
         // Y
-        memcpy(plane0, buf265, frame_size_recon);
+        memcpy(plane0, recc->data[0], frame_size_recon);
         // U
-        memcpy(plane1, buf265 + frame_size_recon, frame_size_recon / 4);
+        memcpy(plane1, recc->data[1], frame_size_recon / 4);
         // V
-        memcpy(plane2, buf265 + frame_size_recon + frame_size_recon / 4, frame_size_recon / 4);
+        memcpy(plane2, recc->data[2], frame_size_recon / 4);
 
       }
 

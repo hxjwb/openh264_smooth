@@ -178,6 +178,10 @@ source_set("encoder") {
     sources += openh264_encoder_sources_asm_arm
   }
   include_dirs = openh264_encoder_include_dirs
+  
+  libs = [
+    "//third_party/openh264/src/myhevc/lib/libx265.lib",
+  ]
 
   configs -= [ "//build/config/compiler:chromium_code" ]
   configs += [ "//build/config/compiler:no_chromium_code" ]

@@ -54,6 +54,8 @@
 #include <sys/time.h>
 #endif
 
+#include "x265_encode.h"
+
 namespace WelsEnc {
 
 /*
@@ -207,7 +209,19 @@ int CWelsH264SVCEncoder::Initialize (const SEncParamBase* argv) {
   return InitializeInternal (&sConfig);
 }
 
+
+MyEncoder p_encoder;
+
 int CWelsH264SVCEncoder::InitializeExt (const SEncParamExt* argv) {
+  // XJ 
+  int width = argv->iPicWidth + 64;
+  int height = argv->iPicHeight;
+  fprintf(stderr, "MYOPEN width: %d, height: %d\n", width, height);
+  
+  p_encoder.encoder_init(width, height, 30, 1000000, 30);
+
+
+
   if (m_pWelsTrace == NULL) {
     return cmMallocMemeError;
   }
@@ -1369,6 +1383,7 @@ void CWelsH264SVCEncoder::DumpSrcPicture (const SSourcePicture*  pSrcPic, const 
 using namespace WelsEnc;
 
 int32_t WelsCreateSVCEncoder (ISVCEncoder** ppEncoder) {
+
   if ((*ppEncoder = new CWelsH264SVCEncoder()) != NULL) {
     return 0;
   }
