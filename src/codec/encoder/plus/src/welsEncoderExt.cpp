@@ -213,9 +213,27 @@ int CWelsH264SVCEncoder::Initialize (const SEncParamBase* argv) {
 MyEncoder p_encoder;
 
 int CWelsH264SVCEncoder::InitializeExt (const SEncParamExt* argv) {
+
+
   // XJ 
-  int width = argv->iPicWidth + 64;
+  int width = argv->iPicWidth;
   int height = argv->iPicHeight;
+
+  if(width==480&&height==270){
+    width = 480;
+    height = 272;
+  }
+
+  if(width==320&&height==180){
+    width = 384;
+    height = 192;
+  }
+
+  if(width==640&&height==360){
+    width = 640;
+    height = 360;
+  }
+
   fprintf(stderr, "MYOPEN width: %d, height: %d\n", width, height);
   
   p_encoder.encoder_init(width, height, 30, 1000000, 30);
