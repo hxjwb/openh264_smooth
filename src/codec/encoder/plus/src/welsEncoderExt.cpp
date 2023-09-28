@@ -223,7 +223,7 @@ int CWelsH264SVCEncoder::InitializeExt (const SEncParamExt* argv) {
     width = 480;
     height = 272;
   }
-
+  
   if(width==320&&height==180){
     width = 384;
     height = 192;
