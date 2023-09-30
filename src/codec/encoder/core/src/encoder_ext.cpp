@@ -3380,8 +3380,8 @@ void ClearFrameBsInfo (sWelsEncCtx* pCtx, SFrameBSInfo* pFbi) {
   pFbi->iFrameSizeInBytes = 0;
 }
 #if SMOOTH_INTRA
-uint8_t* buf265;
-int my_nal_size;
+uint8_t* buf265; //265 buffer
+int my_nal_size; //265 buffer size
 #endif
 EVideoFrameType PrepareEncodeFrame (sWelsEncCtx* pCtx, SLayerBSInfo*& pLayerBsInfo, int32_t iSpatialNum,
                                     int8_t& iCurDid, int32_t& iCurTid,
@@ -3440,10 +3440,10 @@ EVideoFrameType PrepareEncodeFrame (sWelsEncCtx* pCtx, SLayerBSInfo*& pLayerBsIn
 
 
 #if SMOOTH_INTRA
-Recon* recc;
+Recon* recc;   // recon buffer
 extern MyEncoder p_encoder;
 
-//定义一个结构体，包含三个int，分别为宽、高和标识
+
 typedef struct 
 {
     int bits;
@@ -3642,19 +3642,6 @@ int32_t WelsEncoderEncodeExt (sWelsEncCtx* pCtx, SFrameBSInfo* pFbi, const SSour
       fprintf(stderr, "IDR U Width = %d, Height = %d Line = %d\n", pCtx->pEncPic->iWidthInPixel, pCtx->pEncPic->iHeightInPixel, pCtx->pEncPic->iLineSize[1]);
       fprintf(stderr, "IDR V Width = %d, Height = %d Line = %d\n", pCtx->pEncPic->iWidthInPixel, pCtx->pEncPic->iHeightInPixel, pCtx->pEncPic->iLineSize[2]);
       
-      
-      // buf265 = (uint8_t*)malloc(pCtx->pEncPic->iHeightInPixel * pCtx->pEncPic->iLineSize[0]  * 3 / 2);
-      
-      // // 写入Y到buf265
-      // int framesize = pCtx->pEncPic->iHeightInPixel * pCtx->pEncPic->iLineSize[0];
-      // memcpy(buf265, pCtx->pEncPic->pData[0], framesize);
-      
-      // // 写入U到buf265
-      // memcpy(buf265 + framesize, pCtx->pEncPic->pData[1], framesize / 4);
-
-      // // 写入V到buf265
-      // memcpy(buf265 + framesize + framesize / 4, pCtx->pEncPic->pData[2], framesize / 4);
-
         MyPacket* packet = new MyPacket;
         recc = new Recon;
         
@@ -3662,7 +3649,7 @@ int32_t WelsEncoderEncodeExt (sWelsEncCtx* pCtx, SFrameBSInfo* pFbi, const SSour
         fdata[0] = pCtx->pEncPic->pData[0];
         fdata[1] = pCtx->pEncPic->pData[1];
         fdata[2] = pCtx->pEncPic->pData[2];
-        p_encoder.encoder_encode_frame(fdata,packet,0, recc);
+        p_encoder.encoder_encode_frame(fdata,packet,0, recc); //Encode! by H265Encoder.cpp
 
         // 将packet写入文件
         // FILE *fp = fopen("test.265", "wb");
@@ -3682,6 +3669,10 @@ int32_t WelsEncoderEncodeExt (sWelsEncCtx* pCtx, SFrameBSInfo* pFbi, const SSour
         // 写入结构体endbytes
         memcpy(buf265 + packet->size, &endbytes, sizeof(EndBytes));
   
+        // 将fdata变为全127
+        memset(fdata[0], 127, pCtx->pEncPic->iLineSize[0]*pCtx->pEncPic->iHeightInPixel);
+        memset(fdata[1], 127, pCtx->pEncPic->iLineSize[1]*pCtx->pEncPic->iHeightInPixel/2);
+        memset(fdata[2], 127, pCtx->pEncPic->iLineSize[2]*pCtx->pEncPic->iHeightInPixel/2);
         
 
 
@@ -3980,33 +3971,10 @@ int32_t WelsEncoderEncodeExt (sWelsEncCtx* pCtx, SFrameBSInfo* pFbi, const SSour
         uint8_t* plane1 = current_pic->pData[1];
         uint8_t* plane2 = current_pic->pData[2];
 
-        // Y
-
-        // for (int i = 0; i < current_pic->iLineSize[0] * current_pic->iHeightInPixel; i++) {
-        //   plane0[i] = 127;
-        // }
+  
         fprintf(stderr, "IDR Recon Y Width = %d, Height = %d Line = %d\n",current_pic->iWidthInPixel, current_pic->iHeightInPixel, current_pic->iLineSize[0]);
         fprintf(stderr, "IDR Recon U Width = %d, Height = %d Line = %d\n", current_pic->iWidthInPixel, current_pic->iHeightInPixel, current_pic->iLineSize[1]);
         fprintf(stderr, "IDR Recon V Width = %d, Height = %d Line = %d\n", current_pic->iWidthInPixel, current_pic->iHeightInPixel, current_pic->iLineSize[2]);
-        //memset(plane0, 127, current_pic->iLineSize[0] * current_pic->iHeightInPixel);
-
-        // U
-        // for (int i = 0; i < current_pic->iLineSize[0] * current_pic->iHeightInPixel / 4; i++) {
-        //   plane1[i] = 127;
-        // }
-        //memset(plane1, 127, current_pic->iLineSize[0] * current_pic->iHeightInPixel / 4);
-        // V
-        // for (int i = 0; i < current_pic->iLineSize[0] * current_pic->iHeightInPixel / 4; i++) {
-        //   plane2[i] = 127;
-        // }
-        //memset(plane2, 127, current_pic->iLineSize[0] * current_pic->iHeightInPixel / 4);1
-
-        //READ FROM TEMP
-        // FILE *fp = fopen("temp.yuv", "rb");
-        // fread(plane0, 1, current_pic->iLineSize[0] * current_pic->iHeightInPixel, fp);
-        // fread(plane1, 1, current_pic->iLineSize[1] * current_pic->iHeightInPixel / 2, fp);
-        // fread(plane2, 1, current_pic->iLineSize[2] * current_pic->iHeightInPixel / 2, fp);
-        // fclose(fp);
 
         //READ FROM buf265
         int frame_size_recon = current_pic->iLineSize[0] * current_pic->iHeightInPixel;
@@ -4281,7 +4249,7 @@ int32_t WelsEncoderEncodeExt (sWelsEncCtx* pCtx, SFrameBSInfo* pFbi, const SSour
 #endif
 
 #if SMOOTH_INTRA
-
+  // Write 265 stream to buffer265
   // if IDF
   if (eFrameType == videoFrameTypeIDR) {
     // pFbi->iLayerNum += 1;
