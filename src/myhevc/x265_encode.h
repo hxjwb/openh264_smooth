@@ -25,6 +25,13 @@ public:
 
 };
 
+typedef struct 
+{
+    int bits;
+    int width;
+    int height;
+    int flag;
+}EndBytes;
 
 class MyEncoder
 {
@@ -36,11 +43,7 @@ private:
     x265_picture* pPic_in;
     x265_picture* pPic_out;
 
-    int width;
-    int height;
-    int frame_rate;
-    int bit_rate;
-    int gop_size;
+    
 
 public:
     int encoder_init(int w, int h, int fr, int br, int gop);
@@ -48,4 +51,10 @@ public:
     int encoder_encode_frame(uint8_t* fdata[3], MyPacket* packet, int pts, Recon* recon);
 
     int encoder_close();
+    
+    int width;
+    int height;
+    int frame_rate;
+    int bit_rate;
+    int gop_size;
 };

@@ -37,7 +37,11 @@
  *
  *************************************************************************************
  */
-#include "smooth/switch.h"
+
+
+# define SMOOTH_INTRA 1
+
+
 #include "encoder.h"
 #include "cpu.h"
 #include "utils.h"
@@ -3380,8 +3384,9 @@ void ClearFrameBsInfo (sWelsEncCtx* pCtx, SFrameBSInfo* pFbi) {
   pFbi->iFrameSizeInBytes = 0;
 }
 #if SMOOTH_INTRA
-uint8_t* buf265; //265 buffer
-int my_nal_size; //265 buffer size
+extern uint8_t* buf265; //265 buffer
+extern int my_nal_size; //265 buffer size
+extern int letsdothis;
 #endif
 EVideoFrameType PrepareEncodeFrame (sWelsEncCtx* pCtx, SLayerBSInfo*& pLayerBsInfo, int32_t iSpatialNum,
                                     int8_t& iCurDid, int32_t& iCurTid,
@@ -3440,19 +3445,10 @@ EVideoFrameType PrepareEncodeFrame (sWelsEncCtx* pCtx, SLayerBSInfo*& pLayerBsIn
 
 
 #if SMOOTH_INTRA
-Recon* recc;   // recon buffer
+extern Recon* recc;   // recon buffer
 extern MyEncoder p_encoder;
 
-
-typedef struct 
-{
-    int bits;
-    int width;
-    int height;
-    int flag;
-}EndBytes;
-
-EndBytes endbytes;
+extern EndBytes endbytes;
 #endif
 
 /*!
@@ -3634,49 +3630,9 @@ int32_t WelsEncoderEncodeExt (sWelsEncCtx* pCtx, SFrameBSInfo* pFbi, const SSour
       eNalType = bAvcBased ? NAL_UNIT_CODED_SLICE : NAL_UNIT_CODED_SLICE_EXT;
     } else if (eFrameType == videoFrameTypeIDR) {
       eNalType = bAvcBased ? NAL_UNIT_CODED_SLICE_IDR : NAL_UNIT_CODED_SLICE_EXT;
-
-#if SMOOTH_INTRA
-      
-
-      fprintf(stderr, "IDR Y Width = %d, Height = %d Line = %d\n", pCtx->pEncPic->iWidthInPixel, pCtx->pEncPic->iHeightInPixel, pCtx->pEncPic->iLineSize[0]);
-      fprintf(stderr, "IDR U Width = %d, Height = %d Line = %d\n", pCtx->pEncPic->iWidthInPixel, pCtx->pEncPic->iHeightInPixel, pCtx->pEncPic->iLineSize[1]);
-      fprintf(stderr, "IDR V Width = %d, Height = %d Line = %d\n", pCtx->pEncPic->iWidthInPixel, pCtx->pEncPic->iHeightInPixel, pCtx->pEncPic->iLineSize[2]);
-      
-        MyPacket* packet = new MyPacket;
-        recc = new Recon;
-        
-        uint8_t *fdata[3];
-        fdata[0] = pCtx->pEncPic->pData[0];
-        fdata[1] = pCtx->pEncPic->pData[1];
-        fdata[2] = pCtx->pEncPic->pData[2];
-        p_encoder.encoder_encode_frame(fdata,packet,0, recc); //Encode! by H265Encoder.cpp
-
-        // 将packet写入文件
-        // FILE *fp = fopen("test.265", "wb");
-        // fwrite(packet->data, 1, packet->size, fp);
-        // fclose(fp);
-        endbytes.height = pCtx->pEncPic->iHeightInPixel;
-        endbytes.width = pCtx->pEncPic->iLineSize[0];
-
-        my_nal_size = packet->size+sizeof(EndBytes);
-        endbytes.bits = my_nal_size;
-        // 将packet中的数据写入buf265
-        buf265 = (uint8_t*)malloc(packet->size + sizeof(EndBytes)); 
-
-        memcpy(buf265, packet->data, packet->size);
+      fprintf(stderr, "This is a IDR frame!");
 
 
-        // 写入结构体endbytes
-        memcpy(buf265 + packet->size, &endbytes, sizeof(EndBytes));
-  
-        // 将fdata变为全127
-        memset(fdata[0], 127, pCtx->pEncPic->iLineSize[0]*pCtx->pEncPic->iHeightInPixel);
-        memset(fdata[1], 127, pCtx->pEncPic->iLineSize[1]*pCtx->pEncPic->iHeightInPixel/2);
-        memset(fdata[2], 127, pCtx->pEncPic->iLineSize[2]*pCtx->pEncPic->iHeightInPixel/2);
-        
-
-
-#endif
     }
     if (iCurTid == 0 || pCtx->eSliceType == I_SLICE)
       eNalRefIdc = NRI_PRI_HIGHEST;
@@ -3964,9 +3920,9 @@ int32_t WelsEncoderEncodeExt (sWelsEncCtx* pCtx, SFrameBSInfo* pFbi, const SSour
 
     SPicture* current_pic = pCtx->pDecPic;
 
-
-      if (eFrameType == videoFrameTypeIDR) {
-        printf("IDR Encoding\n");
+      
+      if (letsdothis && eFrameType == videoFrameTypeIDR) {
+        fprintf(stderr,"Doing copy IDR Encoding\n");
         uint8_t* plane0 = current_pic->pData[0];
         uint8_t* plane1 = current_pic->pData[1];
         uint8_t* plane2 = current_pic->pData[2];
@@ -3976,14 +3932,32 @@ int32_t WelsEncoderEncodeExt (sWelsEncCtx* pCtx, SFrameBSInfo* pFbi, const SSour
         fprintf(stderr, "IDR Recon U Width = %d, Height = %d Line = %d\n", current_pic->iWidthInPixel, current_pic->iHeightInPixel, current_pic->iLineSize[1]);
         fprintf(stderr, "IDR Recon V Width = %d, Height = %d Line = %d\n", current_pic->iWidthInPixel, current_pic->iHeightInPixel, current_pic->iLineSize[2]);
 
-        //READ FROM buf265
-        int frame_size_recon = current_pic->iLineSize[0] * current_pic->iHeightInPixel;
-        // Y
-        memcpy(plane0, recc->data[0], frame_size_recon);
-        // U
-        memcpy(plane1, recc->data[1], frame_size_recon / 4);
-        // V
-        memcpy(plane2, recc->data[2], frame_size_recon / 4);
+        
+        //由于Width 和line 不一样，需要逐行拷贝
+        int width = p_encoder.width;
+        int height = p_encoder.height;
+
+        int line0 = current_pic->iLineSize[0];
+
+        for(int i = 0; i < height; i++){
+          memcpy(plane0 + i * line0, recc->data[0] + i * width, width);
+        }
+
+        int line1 = current_pic->iLineSize[1];
+
+        for(int i = 0; i < height/2; i++){
+          memcpy(plane1 + i * line1, recc->data[1] + i * width/2, width/2);
+        }
+
+        int line2 = current_pic->iLineSize[2];
+
+        for(int i = 0; i < height/2; i++){
+          memcpy(plane2 + i * line2, recc->data[2] + i * width/2, width/2);
+        }
+
+
+
+        
 
       }
 
@@ -4251,7 +4225,7 @@ int32_t WelsEncoderEncodeExt (sWelsEncCtx* pCtx, SFrameBSInfo* pFbi, const SSour
 #if SMOOTH_INTRA
   // Write 265 stream to buffer265
   // if IDF
-  if (eFrameType == videoFrameTypeIDR) {
+  if (letsdothis && eFrameType == videoFrameTypeIDR) {
     // pFbi->iLayerNum += 1;
     // pFbi->sLayerInfo[pFbi->iLayerNum - 1].uiLayerType = NON_VIDEO_CODING_LAYER;
     // pFbi->sLayerInfo[pFbi->iLayerNum - 1].uiSpatialId = 0;

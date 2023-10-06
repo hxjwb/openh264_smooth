@@ -308,6 +308,8 @@ class ISVCEncoder {
   */
   virtual int EXTAPI EncodeFrame (const SSourcePicture* kpSrcPic, SFrameBSInfo* pBsInfo) = 0;
 
+  virtual int EXTAPI EncodeIFrame (const SSourcePicture* kpSrcPic, SFrameBSInfo* pBsInfo) = 0;
+
   /**
   * @brief  Encode the parameters from output bit stream
   * @param  pBsInfo output bit stream
