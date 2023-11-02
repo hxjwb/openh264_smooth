@@ -3915,6 +3915,9 @@ int32_t WelsEncoderEncodeExt (sWelsEncCtx* pCtx, SFrameBSInfo* pFbi, const SSour
     //update scc related
     pCtx->pFuncList->pfUpdateFMESwitch (pCtx->pCurDqLayer);
     
+    //打印当前QP
+    fprintf(stderr, "Current QP = %d\n", pCtx->pWelsSvcRc[iCurDid].iAverageFrameQp);
+
 
 #if SMOOTH_INTRA
 

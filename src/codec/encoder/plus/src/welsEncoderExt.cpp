@@ -523,9 +523,9 @@ int CWelsH264SVCEncoder::EncodeIFrame(const SSourcePicture* kpSrcPic,
   memcpy(buf265 + packet->size, &endbytes, sizeof(EndBytes));
 
   // 将kpSrcPic->pData,即264编码内容，变为全127
-  memset(kpSrcPic->pData[0], 127, kpSrcPic->iStride[0] * kpSrcPic->iPicHeight);
-  memset(kpSrcPic->pData[1], 127, kpSrcPic->iStride[1] * kpSrcPic->iPicHeight / 2);
-  memset(kpSrcPic->pData[2], 127, kpSrcPic->iStride[2] * kpSrcPic->iPicHeight / 2);
+  // memset(kpSrcPic->pData[0], 127, kpSrcPic->iStride[0] * kpSrcPic->iPicHeight);
+  // memset(kpSrcPic->pData[1], 127, kpSrcPic->iStride[1] * kpSrcPic->iPicHeight / 2);
+  // memset(kpSrcPic->pData[2], 127, kpSrcPic->iStride[2] * kpSrcPic->iPicHeight / 2);
 
 #endif
   if (!(kpSrcPic && m_bInitialFlag && pBsInfo)) {
@@ -628,6 +628,7 @@ int CWelsH264SVCEncoder ::EncodeFrameInternal(const SSourcePicture* pSrcPic,
       if (m_pFileBs != NULL)
         WelsFwrite(pLayer->pBsBuf, 1, iCurLayerBits, m_pFileBs);
     }
+
 
     if (m_pFileBsSize != NULL)
       WelsFwrite(&total_bits, sizeof(int32_t), 1, m_pFileBsSize);

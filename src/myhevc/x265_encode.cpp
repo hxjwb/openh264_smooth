@@ -15,7 +15,7 @@ int MyEncoder::encoder_init(int w, int h, int fr, int br, int gop)
     pPic_in = NULL;
     pPic_out = NULL;
     pParam = x265_param_alloc();
-    x265_param_default_preset(pParam, "ultrafast", "zerolatency");
+    x265_param_default_preset(pParam, "medium", "zerolatency");
 
     pParam->bRepeatHeaders = 1; // write sps,pps before keyframe
     pParam->internalCsp = X265_CSP_I420;
@@ -25,7 +25,8 @@ int MyEncoder::encoder_init(int w, int h, int fr, int br, int gop)
     pParam->fpsDenom = 1;
     pParam->keyframeMax = 1; // all intra
     pParam->rc.rateControlMode = X265_RC_CQP;
-    pParam->rc.qp = 44;
+    // pParam->rc.
+    pParam->rc.qp = 45;
     // Init
     pHandle = x265_encoder_open(pParam);
     if (pHandle == NULL)
